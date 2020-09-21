@@ -283,13 +283,14 @@ class TickerBase():
         url = "{}/{}/holders".format(self._scrape_url, self.ticker)
         holders = _pd.read_html(url)
         self._major_holders = holders[0]
-        self._institutional_holders = holders[1]
-        if 'Date Reported' in self._institutional_holders:
-            self._institutional_holders['Date Reported'] = _pd.to_datetime(
-                self._institutional_holders['Date Reported'])
-        if '% Out' in self._institutional_holders:
-            self._institutional_holders['% Out'] = self._institutional_holders[
-                '% Out'].str.replace('%', '').astype(float)/100
+        if len(holders) > 1:
+            self._institutional_holders = holders[1]
+            if 'Date Reported' in self._institutional_holders:
+                self._institutional_holders['Date Reported'] = _pd.to_datetime(
+                    self._institutional_holders['Date Reported'])
+            if '% Out' in self._institutional_holders:
+                self._institutional_holders['% Out'] = self._institutional_holders[
+                    '% Out'].str.replace('%', '').astype(float)/100
 
         # sustainability
         d = {}
@@ -300,9 +301,12 @@ class TickerBase():
 
             s = _pd.DataFrame(index=[0], data=d)[-1:].T
             s.columns = ['Value']
-            s.index.name = '%.f-%.f' % (
-                s[s.index == 'ratingYear']['Value'].values[0],
-                s[s.index == 'ratingMonth']['Value'].values[0])
+            if len(s[s.index == 'ratingYear']['Value'].values) > 0 \
+               and \
+               len(s[s.index == 'ratingMonth']['Value'].values) > 0:
+                s.index.name = '%.f-%.f' % (
+                    s[s.index == 'ratingYear']['Value'].values[0],
+                    s[s.index == 'ratingMonth']['Value'].values[0])
 
             self._sustainability = s[~s.index.isin(
                 ['maxAge', 'ratingYear', 'ratingMonth'])]
@@ -315,7 +319,9 @@ class TickerBase():
             if isinstance(data.get(item), dict):
                 self._info.update(data[item])
 
-        self._info['regularMarketPrice'] = self._info['regularMarketOpen']
+        if 'regularMarketOpen' in self._info:
+            self._info['regularMarketPrice'] = self._info['regularMarketOpen']
+
         self._info['logo_url'] = ""
         try:
             domain = self._info['website'].split(
